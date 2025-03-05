@@ -47,10 +47,11 @@ WRAPPED_SFI_ADDRESS = w3.to_checksum_address("0x6dC404EFd04B880B0Ab5a26eF461b63A
 # Создание контрактов
 contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi_data['contract'])
 pair_contract = w3.eth.contract(address=PAIR_ADDRESS, abi=abi_data['pair'])
-router_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['router'])
+router_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['router_full'])
 token_contract = w3.eth.contract(address=TOKEN_ADDRESS, abi=abi_data['token'])
 swap_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['swap'])
 wrapped_sfi_contract = w3.eth.contract(address=WRAPPED_SFI_ADDRESS, abi=abi_data['wsfi'])
+aimm_contract = w3.eth.contract(address=AIM_ADDRESS, abi=abi_data['token'])
 
 # Функция для проверки прокси
 def check_proxy(proxy):
@@ -73,7 +74,7 @@ def check_proxy(proxy):
 # Функция для получения резервов пары
 def get_reserves():
     reserves = pair_contract.functions.getReserves().call()
-    return reserves[0], reserves[1]  # reserve_eth, reserve_aimm
+    return reserves[0], reserves[1]  # reserve_eth (Wrapped SFI), reserve_aimm (AIMM)
 
 # Функция для генерации случайной суммы
 def generate_random_amount():
@@ -143,21 +144,47 @@ def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
     print(f"{Fore.RED}✗ Превышено максимальное количество попыток для депозита.{Style.RESET_ALL}")
     return None
 
-# Функция для withdrawAndClaim
-def send_withdraw_and_claim_transaction(amount, nonce, private_key, max_retries=3):
+# Функция для получения застейканного баланса
+def get_staked_balance(wallet_address):
+    try:
+        user_info = contract.functions.userInfo(wallet_address).call()
+        staked_amount = user_info[0]  # Застейканный баланс (amount)
+        print(f"{Fore.CYAN}Застейканный баланс: {w3.from_wei(staked_amount, 'ether')} Wrapped SFI{Style.RESET_ALL}")
+        return staked_amount
+    except Exception as e:
+        print(f"{Fore.RED}✗ Ошибка при получении застейканного баланса: {e}{Style.RESET_ALL}")
+        return 0
+
+# Функция для withdrawAndClaim с проверкой баланса
+def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_retries=3):
+    staked_balance = get_staked_balance(wallet_address)
+    if staked_balance == 0:
+        print(f"{Fore.YELLOW}⚠ Нет застейканных токенов для вывода.{Style.RESET_ALL}")
+        return None
+
+    percentage = random.uniform(0.03, 0.06)  # 3-6%
+    withdraw_amount = int(staked_balance * percentage)
+    print(f"{Fore.CYAN}Выводим {percentage * 100:.2f}%: {w3.from_wei(withdraw_amount, 'ether')} Wrapped SFI{Style.RESET_ALL}")
+
     for attempt in range(max_retries):
         try:
-            tx = contract.functions.withdrawAndClaim(amount).build_transaction({
+            tx = contract.functions.withdrawAndClaim(withdraw_amount).build_transaction({
                 'chainId': 751, 'gas': 2000000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.GREEN}✓ WithdrawAndClaim выполнен. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
-            return tx_hash
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+            if receipt.status == 1:
+                print(f"{Fore.GREEN}✓ WithdrawAndClaim выполнен. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+                return tx_hash
+            else:
+                revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
+                print(f"{Fore.RED}✗ WithdrawAndClaim провалился. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                raise Exception("WithdrawAndClaim transaction failed")
         except Exception as e:
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
-                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+                nonce = w3.eth.get_transaction_count(wallet_address, 'pending')
             else:
                 print(f"{Fore.RED}✗ Ошибка WithdrawAndClaim: {e}{Style.RESET_ALL}")
                 return None
@@ -262,19 +289,54 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
     print(f"{Fore.RED}✗ Превышено максимальное количество попыток для Approve.{Style.RESET_ALL}")
     return None
 
-# Функция addLiquidityETH
+# Функция addLiquidityETH с проверкой баланса AIMM и WSFI
 def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
     for attempt in range(max_retries):
         try:
+            # Получаем резервы пула
             reserve_eth, reserve_aimm = get_reserves()
-            print(f"Резервы пула: ETH = {w3.from_wei(reserve_eth, 'ether')}, AIMM = {w3.from_wei(reserve_aimm, 'ether')}")
+            print(f"Резервы пула: Wrapped SFI = {w3.from_wei(reserve_eth, 'ether')}, AIMM = {w3.from_wei(reserve_aimm, 'ether')}")
 
-            eth_amount = random.uniform(0.001, 0.028)
-            eth_amount_wei = w3.to_wei(eth_amount, 'ether')
-            aimm_amount_wei = eth_amount_wei * reserve_aimm // reserve_eth if reserve_eth > 0 else eth_amount_wei
+            # Получаем баланс AIMM на кошельке
+            aimm_balance = aimm_contract.functions.balanceOf(w3.eth.account.from_key(private_key).address).call()
+            print(f"Баланс AIMM: {w3.from_wei(aimm_balance, 'ether')} AIMM")
+
+            # Получаем баланс WSFI на кошельке
+            wsfi_balance = wrapped_sfi_contract.functions.balanceOf(w3.eth.account.from_key(private_key).address).call()
+            print(f"Баланс Wrapped SFI: {w3.from_wei(wsfi_balance, 'ether')} WSFI")
+
+            if aimm_balance == 0 or wsfi_balance == 0:
+                print(f"{Fore.YELLOW}⚠ Баланс AIMM или WSFI равен 0. Пропускаем добавление ликвидности.{Style.RESET_ALL}")
+                return None
+
+            # Берем случайный процент от 10% до 15% баланса AIMM
+            percentage = random.uniform(0.10, 0.15)  # 10-15%
+            aimm_amount_wei = int(aimm_balance * percentage)
             aimm_amount = w3.from_wei(aimm_amount_wei, 'ether')
-            print(f"Добавляем: ETH = {eth_amount}, AIMM = {aimm_amount}")
+            print(f"Используем {percentage * 100:.2f}% баланса AIMM: {aimm_amount} AIMM")
 
+            # Рассчитываем необходимое количество Wrapped SFI на основе резервов
+            if reserve_aimm > 0 and reserve_eth > 0:
+                eth_amount_wei = (aimm_amount_wei * reserve_eth) // reserve_aimm
+                eth_amount = w3.from_wei(eth_amount_wei, 'ether')
+            else:
+                print(f"{Fore.YELLOW}⚠ Резервы пула некорректны. Используем случайное значение Wrapped SFI.{Style.RESET_ALL}")
+                eth_amount_wei = w3.to_wei(random.uniform(0.001, 0.028), 'ether')
+                eth_amount = w3.from_wei(eth_amount_wei, 'ether')
+
+            # Проверяем, не превышает ли требуемое количество WSFI доступный баланс
+            if eth_amount_wei > wsfi_balance:
+                print(f"{Fore.YELLOW}⚠ Требуется больше WSFI ({eth_amount}) чем доступно ({w3.from_wei(wsfi_balance, 'ether')}). Корректируем...{Style.RESET_ALL}")
+                # Корректируем количество AIMM на основе доступного WSFI
+                eth_amount_wei = wsfi_balance  # Используем весь доступный WSFI
+                aimm_amount_wei = (eth_amount_wei * reserve_aimm) // reserve_eth if reserve_eth > 0 else aimm_amount_wei
+                aimm_amount = w3.from_wei(aimm_amount_wei, 'ether')
+                eth_amount = w3.from_wei(eth_amount_wei, 'ether')
+                print(f"Скорректировано: Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}")
+
+            print(f"Добавляем: Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}")
+
+            # Устанавливаем минимальные значения (95% от рассчитанных)
             amount_token_min = aimm_amount_wei * 95 // 100
             amount_eth_min = eth_amount_wei * 95 // 100
             to = w3.eth.account.from_key(private_key).address
@@ -289,7 +351,7 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
             receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
             if receipt.status == 1:
-                print(f"{Fore.GREEN}✓ Ликвидность добавлена (ETH = {eth_amount}, AIMM = {aimm_amount}). Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}✓ Ликвидность добавлена (Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}). Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
                 return tx_hash
             else:
                 print(f"{Fore.YELLOW}⚠ Ликвидность не добавлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
@@ -309,6 +371,17 @@ def random_sleep(min_time, max_time):
     sleep_time = random.randint(min_time, max_time)
     print(f"{Fore.CYAN}Пауза на {sleep_time} секунд...{Style.RESET_ALL}")
     time.sleep(sleep_time)
+
+# Функция для получения статистики кошелька
+def get_wallet_stats(wallet_address):
+    try:
+        tx_count = w3.eth.get_transaction_count(wallet_address)
+        balance = w3.eth.get_balance(wallet_address)
+        print(f"{Fore.CYAN}Статистика кошелька {wallet_address}:{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}Количество транзакций: {tx_count}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}Баланс: {w3.from_wei(balance, 'ether')} ETH{Style.RESET_ALL}")
+    except Exception as e:
+        print(f"{Fore.RED}✗ Ошибка при получении статистики кошелька: {e}{Style.RESET_ALL}")
 
 # Основной процесс
 for i in range(min(len(accounts), len(proxies))):
@@ -402,9 +475,7 @@ for i in range(min(len(accounts), len(proxies))):
 
     # 5. Выполняем withdrawAndClaim
     print(f"{Fore.BLUE}=== Этап 5: WithdrawAndClaim ==={Style.RESET_ALL}")
-    withdraw_amount = generate_random_amount()
-    print(f"Отправка withdrawAndClaim на {w3.from_wei(withdraw_amount, 'ether')} ETH...")
-    tx_hash = send_withdraw_and_claim_transaction(withdraw_amount, nonce, private_key)
+    tx_hash = send_withdraw_and_claim_transaction(address, nonce, private_key)
     if tx_hash:
         nonce += 1
     random_sleep(10, 45)
@@ -419,6 +490,9 @@ for i in range(min(len(accounts), len(proxies))):
             nonce += 1
         random_sleep(10, 45)
     print(f"{Fore.BLUE}=== Клейм завершён ==={Style.RESET_ALL}")
+
+    # Вывод статистики кошелька
+    get_wallet_stats(address)
 
     # Пауза между аккаунтами
     random_sleep(30, 60)
