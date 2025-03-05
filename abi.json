@@ -1,10 +1,10 @@
 {
-  "deposit_contract_abi": [
+  "contract": [
     {
       "constant": false,
       "inputs": [
-        { "name": "_amount", "type": "uint256" },
-        { "name": "_lockingPeriod", "type": "uint256" }
+        {"name": "_amount", "type": "uint256"},
+        {"name": "_lockingPeriod", "type": "uint256"}
       ],
       "name": "deposit",
       "outputs": [],
@@ -14,7 +14,9 @@
     },
     {
       "constant": false,
-      "inputs": [{ "name": "_amount", "type": "uint256" }],
+      "inputs": [
+        {"name": "_amount", "type": "uint256"}
+      ],
       "name": "withdrawAndClaim",
       "outputs": [],
       "payable": false,
@@ -31,59 +33,57 @@
       "type": "function"
     }
   ],
-  "swap_contract_abi": [
-    {
-      "constant": false,
-      "inputs": [
-        { "name": "amountOutMin", "type": "uint256" },
-        { "name": "path", "type": "address[]" },
-        { "name": "to", "type": "address" },
-        { "name": "deadline", "type": "uint256" }
-      ],
-      "name": "swap",
-      "outputs": [{ "name": "", "type": "uint256[]" }],
-      "payable": true,
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        { "name": "token", "type": "address" },
-        { "name": "amountTokenDesired", "type": "uint256" },
-        { "name": "amountTokenMin", "type": "uint256" },
-        { "name": "amountETHMin", "type": "uint256" },
-        { "name": "to", "type": "address" },
-        { "name": "deadline", "type": "uint256" }
-      ],
-      "name": "addLiquidityETH",
-      "outputs": [{ "name": "", "type": "uint256[]" }],
-      "payable": true,
-      "stateMutability": "payable",
-      "type": "function"
-    }
-  ],
-  "erc20_abi": [
+  "pair": [
     {
       "constant": true,
-      "inputs": [
-        { "name": "owner", "type": "address" },
-        { "name": "spender", "type": "address" }
+      "inputs": [],
+      "name": "getReserves",
+      "outputs": [
+        {"name": "reserve0", "type": "uint112"},
+        {"name": "reserve1", "type": "uint112"},
+        {"name": "blockTimestampLast", "type": "uint32"}
       ],
-      "name": "allowance",
-      "outputs": [{ "name": "", "type": "uint256" }],
       "payable": false,
       "stateMutability": "view",
       "type": "function"
     },
     {
+      "constant": true,
+      "inputs": [],
+      "name": "totalSupply",
+      "outputs": [{"name": "", "type": "uint256"}],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "router": [
+    {
       "constant": false,
       "inputs": [
-        { "name": "spender", "type": "address" },
-        { "name": "value", "type": "uint256" }
+        {"name": "token", "type": "address"},
+        {"name": "amountTokenDesired", "type": "uint256"},
+        {"name": "amountTokenMin", "type": "uint256"},
+        {"name": "amountETHMin", "type": "uint256"},
+        {"name": "to", "type": "address"},
+        {"name": "deadline", "type": "uint256"}
       ],
-      "name": "approve",
-      "outputs": [{ "name": "", "type": "bool" }],
+      "name": "addLiquidityETH",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "token": [
+    {
+      "constant": false,
+      "inputs": [
+        {"name": "to", "type": "address"},
+        {"name": "value", "type": "uint256"}
+      ],
+      "name": "transfer",
+      "outputs": [{"name": "", "type": "bool"}],
       "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
@@ -91,13 +91,29 @@
     {
       "constant": false,
       "inputs": [
-        { "name": "to", "type": "address" },
-        { "name": "value", "type": "uint256" }
+        {"name": "spender", "type": "address"},
+        {"name": "value", "type": "uint256"}
       ],
-      "name": "transfer",
-      "outputs": [{ "name": "", "type": "bool" }],
+      "name": "approve",
+      "outputs": [{"name": "", "type": "bool"}],
       "payable": false,
       "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "swap": [
+    {
+      "constant": false,
+      "inputs": [
+        {"name": "amountOutMin", "type": "uint256"},
+        {"name": "path", "type": "address[]"},
+        {"name": "to", "type": "address"},
+        {"name": "deadline", "type": "uint256"}
+      ],
+      "name": "swapExactETHForTokensSupportingFeeOnTransferTokens",
+      "outputs": [{"name": "", "type": "uint256[]"}],
+      "payable": true,
+      "stateMutability": "payable",
       "type": "function"
     }
   ]
