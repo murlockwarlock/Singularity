@@ -42,6 +42,7 @@ ROUTER_ADDRESS = w3.to_checksum_address("0xFEccff0ecf1cAa1669A71C5E00b51B48E4CBc
 PAIR_ADDRESS = w3.to_checksum_address("0xcc922d9E5DaB15513c6500B67459502A6C2e0F3C")
 AIM_ADDRESS = w3.to_checksum_address("0xAa4aFA7C07405992e3f6799dCC260D389687077a")
 TOKEN_ADDRESS = w3.to_checksum_address("0x03a519f1bd19ce974566ba91190b62d5c00e3a81")
+WRAPPED_SFI_ADDRESS = w3.to_checksum_address("0x6dC404EFd04B880B0Ab5a26eF461b63A12E3888D")
 
 # Создание контрактов
 contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi_data['contract'])
@@ -49,6 +50,7 @@ pair_contract = w3.eth.contract(address=PAIR_ADDRESS, abi=abi_data['pair'])
 router_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['router'])
 token_contract = w3.eth.contract(address=TOKEN_ADDRESS, abi=abi_data['token'])
 swap_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['swap'])
+wrapped_sfi_contract = w3.eth.contract(address=WRAPPED_SFI_ADDRESS, abi=abi_data['token'])
 
 # Функция для проверки прокси
 def check_proxy(proxy):
@@ -77,21 +79,65 @@ def get_reserves():
 def generate_random_amount():
     return w3.to_wei(random.uniform(0.01, 0.32), 'ether')
 
-# Функция для отправки депозита с обработкой nonce
+# Функция для выполнения approve для Wrapped SFI
+def send_approve_wrapped_sfi(spender, amount, nonce, private_key, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            tx = wrapped_sfi_contract.functions.approve(spender, amount).build_transaction({
+                'chainId': 751, 'gas': 100000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
+            })
+            signed_tx = w3.eth.account.sign_transaction(tx, private_key)
+            tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+            if receipt.status == 1:
+                print(f"{Fore.GREEN}✓ Approve для {w3.from_wei(amount, 'ether')} Wrapped SFI подтвержден. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+                return tx_hash
+            else:
+                print(f"{Fore.RED}✗ Approve для {w3.from_wei(amount, 'ether')} Wrapped SFI провалился. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+                # Попытка получить revert reason
+                revert_reason = w3.eth.get_transaction_receipt(tx_hash).get('revertReason', 'Неизвестно')
+                print(f"{Fore.RED}Revert reason: {revert_reason}{Style.RESET_ALL}")
+                raise Exception("Approve transaction failed")
+        except Exception as e:
+            if 'nonce too low' in str(e):
+                print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            else:
+                print(f"{Fore.RED}✗ Ошибка Approve Wrapped SFI: {e}{Style.RESET_ALL}")
+                return None
+    print(f"{Fore.RED}✗ Превышено максимальное количество попыток для Approve Wrapped SFI.{Style.RESET_ALL}")
+    return None
+
+# Функция для отправки депозита с обработкой approve при сбое
 def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
     for attempt in range(max_retries):
         try:
             locking_period = 96 * 24 * 60 * 60
             tx = contract.functions.deposit(amount, locking_period).build_transaction({
-                'chainId': 751, 'gas': 2000000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
+                'chainId': 751, 'gas': 2500000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            return tx_hash
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+            if receipt.status == 1:
+                return tx_hash
+            else:
+                revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
+                print(f"{Fore.RED}✗ Депозит провалился. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                raise Exception("Deposit transaction failed")
         except Exception as e:
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            elif 'transfer amount exceeds allowance' in str(e) or 'insufficient allowance' in str(e) or 'failed' in str(e).lower():
+                print(f"{Fore.YELLOW}⚠ Недостаточно одобренных токенов для депозита. Выполняем Approve...{Style.RESET_ALL}")
+                approve_tx = send_approve_wrapped_sfi(CONTRACT_ADDRESS, amount * 2, nonce, private_key)
+                if approve_tx:
+                    nonce += 1
+                    random_sleep(10, 30)
+                    print(f"{Fore.YELLOW}Повторная попытка депозита после Approve...{Style.RESET_ALL}")
+                else:
+                    raise Exception("Не удалось выполнить Approve для депозита")
             else:
                 print(f"{Fore.RED}✗ Ошибка депозита: {e}{Style.RESET_ALL}")
                 return None
