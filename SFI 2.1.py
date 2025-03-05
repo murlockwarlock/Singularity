@@ -18,19 +18,16 @@ else:
     print("Не удалось подключиться к сети")
     exit()
 
-
 # Чтение аккаунтов и прокси из файлов
 def load_accounts_from_file(file_path):
     with open(file_path, 'r') as file:
         accounts = [line.strip() for line in file.readlines()]
     return accounts
 
-
 def load_proxies_from_file(file_path):
     with open(file_path, 'r') as file:
         proxies = [line.strip() for line in file.readlines()]
     return proxies
-
 
 accounts = load_accounts_from_file("accounts.txt")
 proxies = load_proxies_from_file("proxies.txt")
@@ -109,7 +106,6 @@ contract_abi = [
 # Создание контракта
 contract = w3.eth.contract(address=contract_address, abi=contract_abi)
 
-
 # Функция для проверки прокси
 def check_proxy(proxy):
     try:
@@ -129,7 +125,6 @@ def check_proxy(proxy):
         print(f"{Fore.RED}✗ Ошибка при проверке прокси {proxy}: {e}{Style.RESET_ALL}")
         return False
 
-
 # Функция для получения резервов пары
 def get_reserves():
     reserves = pair_contract.functions.getReserves().call()
@@ -137,12 +132,10 @@ def get_reserves():
     reserve_aimm = reserves[1]
     return reserve_eth, reserve_aimm
 
-
 # Функция для генерации случайной суммы для депозита
 def generate_random_amount():
     eth_amount = random.uniform(0.01, 0.32)
     return w3.to_wei(eth_amount, 'ether')
-
 
 # Функция для отправки депозита
 def send_deposit_transaction(amount, nonce, private_key):
@@ -157,7 +150,6 @@ def send_deposit_transaction(amount, nonce, private_key):
     signed_transaction = w3.eth.account.sign_transaction(transaction, private_key)
     tx_hash = w3.eth.send_raw_transaction(signed_transaction.raw_transaction)
     return tx_hash
-
 
 # Функция для отправки транзакции withdrawAndClaim
 def send_withdraw_and_claim_transaction(amount, nonce, private_key):
@@ -179,7 +171,6 @@ def send_withdraw_and_claim_transaction(amount, nonce, private_key):
     except Exception as e:
         print(f"{Fore.RED}✗ Ошибка при отправке withdrawAndClaim транзакции: {e}{Style.RESET_ALL}")
         return None
-
 
 # Функция для отправки клейма
 def send_claim_transaction(nonce, private_key):
@@ -203,7 +194,6 @@ def send_claim_transaction(nonce, private_key):
     except Exception as e:
         print(f"{Fore.RED}✗ Ошибка при отправке claim транзакции: {e}{Style.RESET_ALL}")
         return None
-
 
 # Функция для отправки токенов (ERC20)
 def send_erc20_transaction(token_address, to_address, amount, nonce, private_key):
@@ -236,7 +226,6 @@ def send_erc20_transaction(token_address, to_address, amount, nonce, private_key
 
     print(f"{Fore.GREEN}✓ Токены отправлены. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
     return tx_hash
-
 
 # Функция для свапа
 def send_swap_transaction(nonce, eth_amount, private_key):
@@ -280,7 +269,6 @@ def send_swap_transaction(nonce, eth_amount, private_key):
     print(f"{Fore.GREEN}✓ Свап выполнен. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
     return tx_hash
 
-
 # Функция Approve для токена AIMM
 def send_approve_transaction(nonce, private_key, amount=1000000):
     token_address = "0xAa4aFA7C07405992e3f6799dCC260D389687077a"  # AIMM
@@ -321,7 +309,6 @@ def send_approve_transaction(nonce, private_key, amount=1000000):
     else:
         print(f"{Fore.RED}✗ Approve для {amount} AIMM провалился{Style.RESET_ALL}")
         raise Exception("Approve transaction failed")
-
 
 # Функция addLiquidityETH с рандомным количеством ETH
 def send_add_liquidity_eth_transaction(nonce, private_key):
@@ -390,13 +377,11 @@ def send_add_liquidity_eth_transaction(nonce, private_key):
         print(f"{Fore.RED}✗ Ошибка при отправке транзакции addLiquidityETH: {e}{Style.RESET_ALL}")
         return None, False
 
-
 # Функция для случайной паузы
 def random_sleep(min_time, max_time):
     sleep_time = random.randint(min_time, max_time)
     print(f"Пауза на {sleep_time} секунд...")
     time.sleep(sleep_time)
-
 
 # Основной процесс с мультиаккаунтами и прокси
 for i in range(min(len(accounts), len(proxies))):
@@ -432,6 +417,14 @@ for i in range(min(len(accounts), len(proxies))):
 
     nonce = w3.eth.get_transaction_count(address, 'latest')
 
+    # Выполняем свап 3 раза (сначала)
+    for j in range(3):
+        swap_amount = generate_random_amount()
+        print(f"Отправка транзакции для свапа {j + 1} на {w3.from_wei(swap_amount, 'ether')} ETH...")
+        tx_hash = send_swap_transaction(nonce, swap_amount, private_key)
+        nonce += 1
+        random_sleep(10, 45)
+
     # Добавляем ликвидность с проверкой на провал
     print("Добавляем ликвидность AIMM + ETH...")
     tx_hash, success = send_add_liquidity_eth_transaction(nonce, private_key)
@@ -461,14 +454,6 @@ for i in range(min(len(accounts), len(proxies))):
     print(f"{Fore.GREEN}✓ Второй депозит отправлен. Хэш: {tx_hash2.hex()}{Style.RESET_ALL}")
     nonce += 1
     random_sleep(10, 45)
-
-    # Выполняем свап 3 раза
-    for j in range(3):
-        swap_amount = generate_random_amount()
-        print(f"Отправка транзакции для свапа {j + 1} на {w3.from_wei(swap_amount, 'ether')} ETH...")
-        tx_hash = send_swap_transaction(nonce, swap_amount, private_key)
-        nonce += 1
-        random_sleep(10, 45)
 
     # Отправляем токены 3 раза
     token_address = "0x03a519f1bd19ce974566ba91190b62d5c00e3a81"
