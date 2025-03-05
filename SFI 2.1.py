@@ -50,7 +50,7 @@ pair_contract = w3.eth.contract(address=PAIR_ADDRESS, abi=abi_data['pair'])
 router_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['router'])
 token_contract = w3.eth.contract(address=TOKEN_ADDRESS, abi=abi_data['token'])
 swap_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['swap'])
-wrapped_sfi_contract = w3.eth.contract(address=WRAPPED_SFI_ADDRESS, abi=abi_data['token'])
+wrapped_sfi_contract = w3.eth.contract(address=WRAPPED_SFI_ADDRESS, abi=abi_data['wsfi'])
 
 # Функция для проверки прокси
 def check_proxy(proxy):
