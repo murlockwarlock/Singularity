@@ -81,19 +81,41 @@ def generate_random_amount():
     return w3.to_wei(random.uniform(0.01, 0.32), 'ether')
 
 # Функция для получения динамической цены газа с отклонением ±10%
-def get_dynamic_gas_price(w3):
+def get_dynamic_gas_price(w3, increase_factor=1.0):
     base_gas_price = w3.eth.gas_price
     variation = random.uniform(0.9, 1.1)  # ±10%
-    dynamic_gas_price = int(base_gas_price * variation)
+    dynamic_gas_price = int(base_gas_price * variation * increase_factor)
     print(
         f"{Fore.CYAN}Текущая цена газа: {w3.from_wei(base_gas_price, 'gwei')} Gwei, применённая: {w3.from_wei(dynamic_gas_price, 'gwei')} Gwei{Style.RESET_ALL}")
     return dynamic_gas_price
 
+# Функция для проверки статуса транзакции после отправки
+def check_transaction_status(tx_hash, max_checks=5, wait_time=30):
+    for attempt in range(max_checks):
+        try:
+            receipt = w3.eth.get_transaction_receipt(tx_hash)
+            if receipt:
+                if receipt.status == 1:
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    print(f"{Fore.GREEN}✓ Транзакция подтверждена. Хэш: {tx_hash_link}{Style.RESET_ALL}")
+                    return True
+                else:
+                    print(f"{Fore.RED}✗ Транзакция провалилась. Статус: {receipt.status}{Style.RESET_ALL}")
+                    return False
+            else:
+                print(f"{Fore.YELLOW}Проверка {attempt + 1}/{max_checks}: Транзакция ещё не подтверждена, ждем...{Style.RESET_ALL}")
+        except Exception as e:
+            print(f"{Fore.YELLOW}Проверка {attempt + 1}/{max_checks}: Ошибка проверки: {e}{Style.RESET_ALL}")
+        time.sleep(wait_time)
+    print(f"{Fore.RED}✗ Транзакция не подтверждена после {max_checks} проверок.{Style.RESET_ALL}")
+    return False
+
 # Функция для выполнения approve для Wrapped SFI на фиксированную сумму (10 токенов)
 def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
     approve_amount = w3.to_wei(10, 'ether')  # Фиксированная сумма 10 токенов
-    gas_price = get_dynamic_gas_price(w3)
+    gas_increase_factor = 1.0
     for attempt in range(max_retries):
+        gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         try:
             tx = wrapped_sfi_contract.functions.approve(spender, approve_amount).build_transaction({
                 'chainId': 751, 'gas': 100000, 'gasPrice': gas_price, 'nonce': nonce
@@ -112,6 +134,10 @@ def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            elif 'replacement transaction underpriced' in str(e):
+                print(f"{Fore.YELLOW}⚠ Цена газа слишком низкая, увеличиваем на 20% (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                gas_increase_factor *= 1.2
+                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
             else:
                 print(f"{Fore.RED}✗ Ошибка Approve Wrapped SFI: {e}{Style.RESET_ALL}")
                 return None
@@ -120,8 +146,9 @@ def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
 
 # Функция для отправки депозита с вызовом approve при сбое
 def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
-    gas_price = get_dynamic_gas_price(w3)
+    gas_increase_factor = 1.0
     for attempt in range(max_retries):
+        gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         try:
             locking_period = 96 * 24 * 60 * 60
             tx = contract.functions.deposit(amount, locking_period).build_transaction({
@@ -139,6 +166,10 @@ def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
         except Exception as e:
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            elif 'replacement transaction underpriced' in str(e):
+                print(f"{Fore.YELLOW}⚠ Цена газа слишком низкая, увеличиваем на 20% (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                gas_increase_factor *= 1.2
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
             elif 'transfer amount exceeds allowance' in str(e).lower() or 'insufficient allowance' in str(e).lower() or 'revert' in str(e).lower():
                 print(f"{Fore.YELLOW}⚠ Депозит провалился из-за недостаточного одобрения. Выполняем Approve на 10 токенов...{Style.RESET_ALL}")
@@ -176,9 +207,11 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
     percentage = random.uniform(0.03, 0.06)  # 3-6%
     withdraw_amount = int(staked_balance * percentage)
     print(f"{Fore.CYAN}Выводим {percentage * 100:.2f}%: {w3.from_wei(withdraw_amount, 'ether')} Wrapped SFI{Style.RESET_ALL}")
-    gas_price = get_dynamic_gas_price(w3)
+    gas_increase_factor = 1.0
 
     for attempt in range(max_retries):
+        gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
+        print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
             tx = contract.functions.withdrawAndClaim(withdraw_amount).build_transaction({
                 'chainId': 751, 'gas': 2000000, 'gasPrice': gas_price, 'nonce': nonce
@@ -197,6 +230,10 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
                 nonce = w3.eth.get_transaction_count(wallet_address, 'pending')
+            elif 'replacement transaction underpriced' in str(e):
+                print(f"{Fore.YELLOW}⚠ Цена газа слишком низкая, увеличиваем на 20% (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                gas_increase_factor *= 1.2
+                nonce = w3.eth.get_transaction_count(wallet_address, 'pending')
             else:
                 print(f"{Fore.RED}✗ Ошибка WithdrawAndClaim: {e}{Style.RESET_ALL}")
                 return None
@@ -205,8 +242,9 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
 
 # Функция для клейма
 def send_claim_transaction(nonce, private_key, max_retries=3):
-    gas_price = get_dynamic_gas_price(w3)
+    gas_increase_factor = 1.0
     for attempt in range(max_retries):
+        gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         try:
             balance = w3.eth.get_balance(w3.eth.account.from_key(private_key).address)
             print(f"Баланс перед клеймом: {w3.from_wei(balance, 'ether')} ETH")
@@ -221,6 +259,10 @@ def send_claim_transaction(nonce, private_key, max_retries=3):
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            elif 'replacement transaction underpriced' in str(e):
+                print(f"{Fore.YELLOW}⚠ Цена газа слишком низкая, увеличиваем на 20% (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                gas_increase_factor *= 1.2
+                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
             else:
                 print(f"{Fore.RED}✗ Ошибка Claim: {e}{Style.RESET_ALL}")
                 return None
@@ -229,8 +271,10 @@ def send_claim_transaction(nonce, private_key, max_retries=3):
 
 # Функция для отправки токенов (ERC20)
 def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3):
-    gas_price = get_dynamic_gas_price(w3)
+    gas_increase_factor = 1.0
     for attempt in range(max_retries):
+        gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
+        print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
             tx = token_contract.functions.transfer(to_address, amount).build_transaction({
                 'chainId': 751, 'gas': 100000, 'gasPrice': gas_price, 'nonce': nonce
@@ -243,6 +287,10 @@ def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            elif 'replacement transaction underpriced' in str(e):
+                print(f"{Fore.YELLOW}⚠ Цена газа слишком низкая, увеличиваем на 20% (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                gas_increase_factor *= 1.2
+                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
             else:
                 print(f"{Fore.RED}✗ Ошибка отправки токенов: {e}{Style.RESET_ALL}")
                 return None
@@ -251,8 +299,9 @@ def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3
 
 # Функция для свапа
 def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
-    gas_price = get_dynamic_gas_price(w3)
+    gas_increase_factor = 1.0
     for attempt in range(max_retries):
+        gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         try:
             amount_out_min = 3285945906750451
             path = [w3.to_checksum_address("0x6dC404EFd04B880B0Ab5a26eF461b63A12E3888D"), AIM_ADDRESS]
@@ -272,6 +321,10 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            elif 'replacement transaction underpriced' in str(e):
+                print(f"{Fore.YELLOW}⚠ Цена газа слишком низкая, увеличиваем на 20% (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                gas_increase_factor *= 1.2
+                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
             else:
                 print(f"{Fore.RED}✗ Ошибка свапа: {e}{Style.RESET_ALL}")
                 return None
@@ -280,10 +333,12 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
 
 # Функция Approve для токена AIMM
 def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
-    gas_price = get_dynamic_gas_price(w3)
+    gas_increase_factor = 1.0
     for attempt in range(max_retries):
+        gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         try:
-            tx = token_contract.functions.approve(ROUTER_ADDRESS, w3.to_wei(amount, 'ether')).build_transaction({
+            # Используем aimm_contract вместо token_contract
+            tx = aimm_contract.functions.approve(ROUTER_ADDRESS, w3.to_wei(amount, 'ether')).build_transaction({
                 'chainId': 751, 'gas': 100000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
@@ -299,6 +354,10 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            elif 'replacement transaction underpriced' in str(e):
+                print(f"{Fore.YELLOW}⚠ Цена газа слишком низкая, увеличиваем на 20% (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                gas_increase_factor *= 1.2
+                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
             else:
                 print(f"{Fore.RED}✗ Ошибка Approve: {e}{Style.RESET_ALL}")
                 return None
@@ -307,8 +366,10 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
 
 # Функция addLiquidityETH с проверкой баланса AIMM и WSFI
 def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
-    gas_price = get_dynamic_gas_price(w3)
+    gas_increase_factor = 1.0
     for attempt in range(max_retries):
+        gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
+        print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
             # Получаем резервы пула
             reserve_eth, reserve_aimm = get_reserves()
@@ -344,7 +405,6 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
             # Проверяем, не превышает ли требуемое количество WSFI доступный баланс
             if eth_amount_wei > wsfi_balance:
                 print(f"{Fore.YELLOW}⚠ Требуется больше WSFI ({eth_amount}) чем доступно ({w3.from_wei(wsfi_balance, 'ether')}). Корректируем...{Style.RESET_ALL}")
-                # Корректируем количество AIMM на основе доступного WSFI
                 eth_amount_wei = wsfi_balance  # Используем весь доступный WSFI
                 aimm_amount_wei = (eth_amount_wei * reserve_aimm) // reserve_eth if reserve_eth > 0 else aimm_amount_wei
                 aimm_amount = w3.from_wei(aimm_amount_wei, 'ether')
@@ -366,21 +426,43 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
-            if receipt.status == 1:
-                print(f"{Fore.GREEN}✓ Ликвидность добавлена (Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}). Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
-                return tx_hash
-            else:
-                print(f"{Fore.YELLOW}⚠ Ликвидность не добавлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
-                raise Exception("Liquidity transaction failed")
+            print(f"{Fore.CYAN}✅ Транзакция addLiquidityETH отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+
+            # Проверяем статус транзакции с тайм-аутом
+            try:
+                receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+                if receipt.status == 1:
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    print(f"{Fore.GREEN}✓ Ликвидность добавлена (Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}). Хэш: {tx_hash_link}{Style.RESET_ALL}")
+                    return tx_hash
+                else:
+                    print(f"{Fore.RED}✗ Ликвидность не добавлена. Статус: {receipt.status}{Style.RESET_ALL}")
+                    raise Exception("Liquidity transaction failed")
+            except Exception as timeout_error:
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                if check_transaction_status(tx_hash):
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    print(f"{Fore.GREEN}✓ Ликвидность добавлена после проверки (Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}). Хэш: {tx_hash_link}{Style.RESET_ALL}")
+                    return tx_hash
+                else:
+                    raise Exception("Транзакция не подтверждена после проверки")
+
         except Exception as e:
             if 'nonce too low' in str(e):
                 print(f"{Fore.YELLOW}⚠ Nonce слишком низкий, обновляем и повторяем (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
+            elif 'replacement transaction underpriced' in str(e):
+                print(f"{Fore.YELLOW}⚠ Цена газа слишком низкая, увеличиваем на 20% (попытка {attempt + 1}/{max_retries})...{Style.RESET_ALL}")
+                gas_increase_factor *= 1.2
+                nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
             else:
                 print(f"{Fore.RED}✗ Ошибка addLiquidityETH: {e}{Style.RESET_ALL}")
-                return None
-    print(f"{Fore.RED}✗ Превышено максимальное количество попыток для addLiquidityETH.{Style.RESET_ALL}")
+                if attempt < max_retries - 1:
+                    print(f"{Fore.YELLOW}Повторяем через 10 секунд...{Style.RESET_ALL}")
+                    time.sleep(10)
+                else:
+                    print(f"{Fore.RED}✗ Превышено максимальное количество попыток для addLiquidityETH.{Style.RESET_ALL}")
+                    return None
     return None
 
 # Функция для случайной паузы
