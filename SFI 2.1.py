@@ -95,7 +95,7 @@ def check_transaction_status(tx_hash, max_checks=5, wait_time=30):
             receipt = w3.eth.get_transaction_receipt(tx_hash)
             if receipt:
                 if receipt.status == 1:
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Транзакция подтверждена. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return True
                 else:
@@ -129,7 +129,7 @@ def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.CYAN}✅ Транзакция Approve отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}✅ Транзакция Approve отправлена. Хэш: 0x{tx_hash.hex()}{Style.RESET_ALL}")
 
             try:
                 receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
@@ -140,15 +140,15 @@ def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Approve для 10 Wrapped SFI подтвержден. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
                     revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
-                    print(f"{Fore.RED}✗ Approve провалился. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ Approve провалился. Хэш: 0x{tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
                     raise Exception("Approve transaction failed")
             except Exception as timeout_error:
-                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
                 if check_transaction_status(tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
@@ -156,7 +156,7 @@ def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Approve для 10 Wrapped SFI подтвержден после проверки. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
@@ -192,7 +192,7 @@ def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.CYAN}✅ Транзакция депозита отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}✅ Транзакция депозита отправлена. Хэш: 0x{tx_hash.hex()}{Style.RESET_ALL}")
 
             try:
                 receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
@@ -203,15 +203,15 @@ def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Депозит выполнен. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
                     revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
-                    print(f"{Fore.RED}✗ Депозит провалился. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ Депозит провалился. Хэш: 0x{tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
                     raise Exception("Deposit transaction failed")
             except Exception as timeout_error:
-                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
                 if check_transaction_status(tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
@@ -219,7 +219,7 @@ def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Депозит выполнен после проверки. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
@@ -282,7 +282,7 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.CYAN}✅ Транзакция WithdrawAndClaim отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}✅ Транзакция WithdrawAndClaim отправлена. Хэш: 0x{tx_hash.hex()}{Style.RESET_ALL}")
 
             try:
                 receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
@@ -293,15 +293,15 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ WithdrawAndClaim выполнен. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
                     revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
-                    print(f"{Fore.RED}✗ WithdrawAndClaim провалился. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ WithdrawAndClaim провалился. Хэш: 0x{tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
                     raise Exception("WithdrawAndClaim transaction failed")
             except Exception as timeout_error:
-                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
                 if check_transaction_status(tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
@@ -309,7 +309,7 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ WithdrawAndClaim выполнен после проверки. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
@@ -340,13 +340,13 @@ def send_claim_transaction(nonce, private_key, max_retries=3):
         print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
             balance = w3.eth.get_balance(w3.eth.account.from_key(private_key).address)
-            print(f"Баланс перед клеймом: {w3.from_wei(balance, 'ether')} ETH")
+            print(f"{Fore.CYAN}Баланс перед клеймом: {w3.from_wei(balance, 'ether')} ETH{Style.RESET_ALL}")
             tx = contract.functions.claim().build_transaction({
                 'chainId': 751, 'gas': 2000000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.CYAN}✅ Транзакция Claim отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}✅ Транзакция Claim отправлена. Хэш: 0x{tx_hash.hex()}{Style.RESET_ALL}")
 
             try:
                 receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
@@ -357,15 +357,15 @@ def send_claim_transaction(nonce, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Claim выполнен. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
                     revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
-                    print(f"{Fore.RED}✗ Claim провалился. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ Claim провалился. Хэш: 0x{tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
                     raise Exception("Claim transaction failed")
             except Exception as timeout_error:
-                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
                 if check_transaction_status(tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
@@ -373,7 +373,7 @@ def send_claim_transaction(nonce, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Claim выполнен после проверки. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
@@ -408,7 +408,7 @@ def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.CYAN}✅ Транзакция отправки токенов отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}✅ Транзакция отправки токенов отправлена. Хэш: 0x{tx_hash.hex()}{Style.RESET_ALL}")
 
             try:
                 receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
@@ -419,15 +419,15 @@ def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Токены отправлены. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
                     revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
-                    print(f"{Fore.RED}✗ Отправка токенов провалилась. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ Отправка токенов провалилась. Хэш: 0x{tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
                     raise Exception("Transfer transaction failed")
             except Exception as timeout_error:
-                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
                 if check_transaction_status(tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
@@ -435,7 +435,7 @@ def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Токены отправлены после проверки. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
@@ -477,7 +477,7 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.CYAN}✅ Транзакция свапа отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}✅ Транзакция свапа отправлена. Хэш: 0x{tx_hash.hex()}{Style.RESET_ALL}")
 
             try:
                 receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
@@ -488,15 +488,15 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Свап выполнен. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
                     revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
-                    print(f"{Fore.RED}✗ Свап провалился. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ Свап провалился. Хэш: 0x{tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
                     raise Exception("Swap transaction failed")
             except Exception as timeout_error:
-                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
                 if check_transaction_status(tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
@@ -504,7 +504,7 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Свап выполнен после проверки. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
@@ -539,7 +539,7 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.CYAN}✅ Транзакция Approve отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}✅ Транзакция Approve отправлена. Хэш: 0x{tx_hash.hex()}{Style.RESET_ALL}")
 
             try:
                 receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
@@ -550,15 +550,15 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Approve для {amount} AIMM подтвержден. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
                     revert_reason = receipt.get('revertReason', 'Неизвестно') if 'revertReason' in receipt else 'Нет данных'
-                    print(f"{Fore.RED}✗ Approve провалился. Хэш: {tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ Approve провалился. Хэш: 0x{tx_hash.hex()}, Revert reason: {revert_reason}{Style.RESET_ALL}")
                     raise Exception("Approve transaction failed")
             except Exception as timeout_error:
-                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
                 if check_transaction_status(tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
@@ -566,7 +566,7 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Approve для {amount} AIMM подтвержден после проверки. Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
@@ -597,11 +597,11 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
         print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
             reserve_eth, reserve_aimm = get_reserves()
-            print(f"Резервы пула: Wrapped SFI = {w3.from_wei(reserve_eth, 'ether')}, AIMM = {w3.from_wei(reserve_aimm, 'ether')}")
+            print(f"{Fore.CYAN}Резервы пула: Wrapped SFI = {w3.from_wei(reserve_eth, 'ether')}, AIMM = {w3.from_wei(reserve_aimm, 'ether')}{Style.RESET_ALL}")
             aimm_balance = aimm_contract.functions.balanceOf(w3.eth.account.from_key(private_key).address).call()
-            print(f"Баланс AIMM: {w3.from_wei(aimm_balance, 'ether')} AIMM")
+            print(f"{Fore.CYAN}Баланс AIMM: {w3.from_wei(aimm_balance, 'ether')} AIMM{Style.RESET_ALL}")
             wsfi_balance = wrapped_sfi_contract.functions.balanceOf(w3.eth.account.from_key(private_key).address).call()
-            print(f"Баланс Wrapped SFI: {w3.from_wei(wsfi_balance, 'ether')} WSFI")
+            print(f"{Fore.CYAN}Баланс Wrapped SFI: {w3.from_wei(wsfi_balance, 'ether')} WSFI{Style.RESET_ALL}")
 
             if aimm_balance == 0 or wsfi_balance == 0:
                 print(f"{Fore.YELLOW}⚠ Баланс AIMM или WSFI равен 0. Пропускаем добавление ликвидности.{Style.RESET_ALL}")
@@ -610,7 +610,7 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
             percentage = random.uniform(0.10, 0.15)
             aimm_amount_wei = int(aimm_balance * percentage)
             aimm_amount = w3.from_wei(aimm_amount_wei, 'ether')
-            print(f"Используем {percentage * 100:.2f}% баланса AIMM: {aimm_amount} AIMM")
+            print(f"{Fore.CYAN}Используем {percentage * 100:.2f}% баланса AIMM: {aimm_amount} AIMM{Style.RESET_ALL}")
 
             if reserve_aimm > 0 and reserve_eth > 0:
                 eth_amount_wei = (aimm_amount_wei * reserve_eth) // reserve_aimm
@@ -626,9 +626,9 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
                 aimm_amount_wei = (eth_amount_wei * reserve_aimm) // reserve_eth if reserve_eth > 0 else aimm_amount_wei
                 aimm_amount = w3.from_wei(aimm_amount_wei, 'ether')
                 eth_amount = w3.from_wei(eth_amount_wei, 'ether')
-                print(f"Скорректировано: Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}")
+                print(f"{Fore.CYAN}Скорректировано: Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}{Style.RESET_ALL}")
 
-            print(f"Добавляем: Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}")
+            print(f"{Fore.CYAN}Добавляем: Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}{Style.RESET_ALL}")
             amount_token_min = aimm_amount_wei * 95 // 100
             amount_eth_min = eth_amount_wei * 95 // 100
             to = w3.eth.account.from_key(private_key).address
@@ -641,7 +641,7 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            print(f"{Fore.CYAN}✅ Транзакция addLiquidityETH отправлена. Хэш: {tx_hash.hex()}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}✅ Транзакция addLiquidityETH отправлена. Хэш: 0x{tx_hash.hex()}{Style.RESET_ALL}")
 
             try:
                 receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
@@ -652,14 +652,14 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Ликвидность добавлена (Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}). Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
                     print(f"{Fore.RED}✗ Ликвидность не добавлена. Статус: {receipt.status}{Style.RESET_ALL}")
                     raise Exception("Liquidity transaction failed")
             except Exception as timeout_error:
-                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции {tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
                 if check_transaction_status(tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
@@ -667,7 +667,7 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
                     if actual_nonce != nonce:
                         print(f"{Fore.YELLOW}⚠ Несоответствие nonce: ожидалось {nonce}, фактически {actual_nonce}{Style.RESET_ALL}")
                         return tx_hash, actual_nonce
-                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/{tx_hash.hex()}"
+                    tx_hash_link = f"https://explorer-testnet.singularityfinance.ai/tx/0x{tx_hash.hex()}"
                     print(f"{Fore.GREEN}✓ Ликвидность добавлена после проверки (Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}). Хэш: {tx_hash_link}{Style.RESET_ALL}")
                     return tx_hash, nonce
                 else:
@@ -735,7 +735,7 @@ for i in range(min(len(accounts), len(proxies))):
     print(f"{Fore.BLUE}=== Этап 1: Свапы ==={Style.RESET_ALL}")
     for j in range(3):
         swap_amount = generate_random_amount()
-        print(f"Запуск свапа {j + 1}/3 на {w3.from_wei(swap_amount, 'ether')} ETH...")
+        print(f"{Fore.CYAN}Запуск свапа {j + 1}/3 на {w3.from_wei(swap_amount, 'ether')} ETH...{Style.RESET_ALL}")
         tx_hash, updated_nonce = send_swap_transaction(nonce, swap_amount, private_key)
         if tx_hash:
             nonce = updated_nonce + 1
@@ -749,13 +749,13 @@ for i in range(min(len(accounts), len(proxies))):
     print(f"{Fore.BLUE}=== Этап 2: Добавление ликвидности ==={Style.RESET_ALL}")
     tx_hash, updated_nonce = send_add_liquidity_eth_transaction(nonce, private_key)
     if not tx_hash:
-        print("Ликвидность не добавлена, выполняем Approve...")
+        print(f"{Fore.YELLOW}Ликвидность не добавлена, выполняем Approve...{Style.RESET_ALL}")
         tx_hash, updated_nonce = send_approve_transaction(nonce, private_key, amount=1000)
         if tx_hash:
             nonce = updated_nonce + 1
             print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
         random_sleep(10, 45)
-        print("Повторная попытка добавления ликвидности...")
+        print(f"{Fore.YELLOW}Повторная попытка добавления ликвидности...{Style.RESET_ALL}")
         tx_hash, updated_nonce = send_add_liquidity_eth_transaction(nonce, private_key)
         if tx_hash:
             nonce = updated_nonce + 1
@@ -769,24 +769,24 @@ for i in range(min(len(accounts), len(proxies))):
     # 3. Выполняем депозиты
     print(f"{Fore.BLUE}=== Этап 3: Депозиты ==={Style.RESET_ALL}")
     amount1 = generate_random_amount()
-    print(f"Баланс Wrapped SFI: {w3.from_wei(wrapped_sfi_contract.functions.balanceOf(address).call(), 'ether')} ETH")
-    print(f"Текущий allowance: {w3.from_wei(wrapped_sfi_contract.functions.allowance(address, CONTRACT_ADDRESS).call(), 'ether')} ETH")
-    print(f"Отправка первого депозита на {w3.from_wei(amount1, 'ether')} ETH...")
+    print(f"{Fore.CYAN}Баланс Wrapped SFI: {w3.from_wei(wrapped_sfi_contract.functions.balanceOf(address).call(), 'ether')} ETH{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Текущий allowance: {w3.from_wei(wrapped_sfi_contract.functions.allowance(address, CONTRACT_ADDRESS).call(), 'ether')} ETH{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Отправка первого депозита на {w3.from_wei(amount1, 'ether')} ETH...{Style.RESET_ALL}")
     tx_hash1, updated_nonce = send_deposit_transaction(amount1, nonce, private_key)
     if tx_hash1:
         nonce = updated_nonce + 1
-        print(f"{Fore.GREEN}✓ Первый депозит отправлен. Хэш: {tx_hash1.hex()}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}✓ Первый депозит отправлен. Хэш: 0x{tx_hash1.hex()}{Style.RESET_ALL}")
         print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
     random_sleep(10, 45)
 
     amount2 = generate_random_amount()
-    print(f"Баланс Wrapped SFI: {w3.from_wei(wrapped_sfi_contract.functions.balanceOf(address).call(), 'ether')} ETH")
-    print(f"Текущий allowance: {w3.from_wei(wrapped_sfi_contract.functions.allowance(address, CONTRACT_ADDRESS).call(), 'ether')} ETH")
-    print(f"Отправка второго депозита на {w3.from_wei(amount2, 'ether')} ETH...")
+    print(f"{Fore.CYAN}Баланс Wrapped SFI: {w3.from_wei(wrapped_sfi_contract.functions.balanceOf(address).call(), 'ether')} ETH{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Текущий allowance: {w3.from_wei(wrapped_sfi_contract.functions.allowance(address, CONTRACT_ADDRESS).call(), 'ether')} ETH{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Отправка второго депозита на {w3.from_wei(amount2, 'ether')} ETH...{Style.RESET_ALL}")
     tx_hash2, updated_nonce = send_deposit_transaction(amount2, nonce, private_key)
     if tx_hash2:
         nonce = updated_nonce + 1
-        print(f"{Fore.GREEN}✓ Второй депозит отправлен. Хэш: {tx_hash2.hex()}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}✓ Второй депозит отправлен. Хэш: 0x{tx_hash2.hex()}{Style.RESET_ALL}")
         print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
     random_sleep(10, 45)
     print(f"{Fore.BLUE}=== Депозиты завершены ==={Style.RESET_ALL}")
@@ -796,7 +796,7 @@ for i in range(min(len(accounts), len(proxies))):
     for k in range(3):
         eth_amount = random.uniform(0.01, 0.99)
         amount = w3.to_wei(eth_amount, 'ether')
-        print(f"Отправка токенов {k + 1}/3 на {eth_amount:.2f} ETH ({amount} wei)...")
+        print(f"{Fore.CYAN}Отправка токенов {k + 1}/3 на {eth_amount:.2f} ETH ({amount} wei)...{Style.RESET_ALL}")
         tx_hash, updated_nonce = send_erc20_transaction(address, amount, nonce, private_key)
         if tx_hash:
             nonce = updated_nonce + 1
@@ -816,7 +816,7 @@ for i in range(min(len(accounts), len(proxies))):
     # 6. Выполняем клейм 2 раза
     print(f"{Fore.BLUE}=== Этап 6: Клейм ==={Style.RESET_ALL}")
     for _ in range(2):
-        print("Отправка транзакции для claim...")
+        print(f"{Fore.CYAN}Отправка транзакции для claim...{Style.RESET_ALL}")
         tx_hash, updated_nonce = send_claim_transaction(nonce, private_key)
         if tx_hash:
             nonce = updated_nonce + 1
