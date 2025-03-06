@@ -80,13 +80,23 @@ def get_reserves():
 def generate_random_amount():
     return w3.to_wei(random.uniform(0.01, 0.32), 'ether')
 
+# Функция для получения динамической цены газа с отклонением ±10%
+def get_dynamic_gas_price(w3):
+    base_gas_price = w3.eth.gas_price
+    variation = random.uniform(0.9, 1.1)  # ±10%
+    dynamic_gas_price = int(base_gas_price * variation)
+    print(
+        f"{Fore.CYAN}Текущая цена газа: {w3.from_wei(base_gas_price, 'gwei')} Gwei, применённая: {w3.from_wei(dynamic_gas_price, 'gwei')} Gwei{Style.RESET_ALL}")
+    return dynamic_gas_price
+
 # Функция для выполнения approve для Wrapped SFI на фиксированную сумму (10 токенов)
 def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
     approve_amount = w3.to_wei(10, 'ether')  # Фиксированная сумма 10 токенов
+    gas_price = get_dynamic_gas_price(w3)
     for attempt in range(max_retries):
         try:
             tx = wrapped_sfi_contract.functions.approve(spender, approve_amount).build_transaction({
-                'chainId': 751, 'gas': 100000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
+                'chainId': 751, 'gas': 100000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
@@ -110,11 +120,12 @@ def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
 
 # Функция для отправки депозита с вызовом approve при сбое
 def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
+    gas_price = get_dynamic_gas_price(w3)
     for attempt in range(max_retries):
         try:
             locking_period = 96 * 24 * 60 * 60
             tx = contract.functions.deposit(amount, locking_period).build_transaction({
-                'chainId': 751, 'gas': 2500000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
+                'chainId': 751, 'gas': 2500000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
@@ -165,11 +176,12 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
     percentage = random.uniform(0.03, 0.06)  # 3-6%
     withdraw_amount = int(staked_balance * percentage)
     print(f"{Fore.CYAN}Выводим {percentage * 100:.2f}%: {w3.from_wei(withdraw_amount, 'ether')} Wrapped SFI{Style.RESET_ALL}")
+    gas_price = get_dynamic_gas_price(w3)
 
     for attempt in range(max_retries):
         try:
             tx = contract.functions.withdrawAndClaim(withdraw_amount).build_transaction({
-                'chainId': 751, 'gas': 2000000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
+                'chainId': 751, 'gas': 2000000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
@@ -193,12 +205,13 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
 
 # Функция для клейма
 def send_claim_transaction(nonce, private_key, max_retries=3):
+    gas_price = get_dynamic_gas_price(w3)
     for attempt in range(max_retries):
         try:
             balance = w3.eth.get_balance(w3.eth.account.from_key(private_key).address)
             print(f"Баланс перед клеймом: {w3.from_wei(balance, 'ether')} ETH")
             tx = contract.functions.claim().build_transaction({
-                'chainId': 751, 'gas': 2000000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
+                'chainId': 751, 'gas': 2000000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
@@ -216,10 +229,11 @@ def send_claim_transaction(nonce, private_key, max_retries=3):
 
 # Функция для отправки токенов (ERC20)
 def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3):
+    gas_price = get_dynamic_gas_price(w3)
     for attempt in range(max_retries):
         try:
             tx = token_contract.functions.transfer(to_address, amount).build_transaction({
-                'chainId': 751, 'gas': 100000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
+                'chainId': 751, 'gas': 100000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
@@ -237,6 +251,7 @@ def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3
 
 # Функция для свапа
 def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
+    gas_price = get_dynamic_gas_price(w3)
     for attempt in range(max_retries):
         try:
             amount_out_min = 3285945906750451
@@ -247,7 +262,7 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
             tx = swap_contract.functions.swapExactETHForTokensSupportingFeeOnTransferTokens(
                 amount_out_min, path, to, deadline
             ).build_transaction({
-                'chainId': 751, 'gas': 2000000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce, 'value': eth_amount
+                'chainId': 751, 'gas': 2000000, 'gasPrice': gas_price, 'nonce': nonce, 'value': eth_amount
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
@@ -265,10 +280,11 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
 
 # Функция Approve для токена AIMM
 def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
+    gas_price = get_dynamic_gas_price(w3)
     for attempt in range(max_retries):
         try:
             tx = token_contract.functions.approve(ROUTER_ADDRESS, w3.to_wei(amount, 'ether')).build_transaction({
-                'chainId': 751, 'gas': 100000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce
+                'chainId': 751, 'gas': 100000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
@@ -291,6 +307,7 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
 
 # Функция addLiquidityETH с проверкой баланса AIMM и WSFI
 def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
+    gas_price = get_dynamic_gas_price(w3)
     for attempt in range(max_retries):
         try:
             # Получаем резервы пула
@@ -345,7 +362,7 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
             tx = router_contract.functions.addLiquidityETH(
                 AIM_ADDRESS, aimm_amount_wei, amount_token_min, amount_eth_min, to, deadline
             ).build_transaction({
-                'chainId': 751, 'gas': 300000, 'gasPrice': w3.to_wei('20', 'gwei'), 'nonce': nonce, 'value': eth_amount_wei
+                'chainId': 751, 'gas': 300000, 'gasPrice': gas_price, 'nonce': nonce, 'value': eth_amount_wei
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
             tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
