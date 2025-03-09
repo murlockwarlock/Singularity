@@ -9,14 +9,6 @@ from colorama import Fore, Style, init
 # Инициализация colorama
 init(autoreset=True)
 
-# Подключение к RPC
-w3 = Web3(Web3.HTTPProvider('https://rpc-testnet.singularityfinance.ai/'))
-if not w3.is_connected():
-    print(f"{Fore.RED}Не удалось подключиться к сети. Завершение работы.{Style.RESET_ALL}")
-    exit()
-
-print(f"{Fore.GREEN}Успешно подключились к сети.{Style.RESET_ALL}")
-
 # Загрузка ABI из файла
 def load_abi_from_file(file_path):
     with open(file_path, 'r') as file:
@@ -37,21 +29,12 @@ accounts = load_accounts_from_file('accounts.txt')
 proxies = load_proxies_from_file('proxies.txt')
 
 # Константы адресов
-CONTRACT_ADDRESS = w3.to_checksum_address("0x22Dbdc9e8dd7C5E409B014BBcb53a3ef39736515")
-ROUTER_ADDRESS = w3.to_checksum_address("0xFEccff0ecf1cAa1669A71C5E00b51B48E4CBc6A1")
-PAIR_ADDRESS = w3.to_checksum_address("0xcc922d9E5DaB15513c6500B67459502A6C2e0F3C")
-AIM_ADDRESS = w3.to_checksum_address("0xAa4aFA7C07405992e3f6799dCC260D389687077a")
-TOKEN_ADDRESS = w3.to_checksum_address("0x03a519f1bd19ce974566ba91190b62d5c00e3a81")
-WRAPPED_SFI_ADDRESS = w3.to_checksum_address("0x6dC404EFd04B880B0Ab5a26eF461b63A12E3888D")
-
-# Создание контрактов
-contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi_data['contract'])
-pair_contract = w3.eth.contract(address=PAIR_ADDRESS, abi=abi_data['pair'])
-router_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['router_full'])
-token_contract = w3.eth.contract(address=TOKEN_ADDRESS, abi=abi_data['token'])
-swap_contract = w3.eth.contract(address=ROUTER_ADDRESS, abi=abi_data['swap'])
-wrapped_sfi_contract = w3.eth.contract(address=WRAPPED_SFI_ADDRESS, abi=abi_data['wsfi'])
-aimm_contract = w3.eth.contract(address=AIM_ADDRESS, abi=abi_data['token'])
+CONTRACT_ADDRESS = "0x22Dbdc9e8dd7C5E409B014BBcb53a3ef39736515"
+ROUTER_ADDRESS = "0xFEccff0ecf1cAa1669A71C5E00b51B48E4CBc6A1"
+PAIR_ADDRESS = "0xcc922d9E5DaB15513c6500B67459502A6C2e0F3C"
+AIM_ADDRESS = "0xAa4aFA7C07405992e3f6799dCC260D389687077a"
+TOKEN_ADDRESS = "0x03a519f1bd19ce974566ba91190b62d5c00e3a81"
+WRAPPED_SFI_ADDRESS = "0x6dC404EFd04B880B0Ab5a26eF461b63A12E3888D"
 
 # Функция для проверки прокси
 def check_proxy(proxy):
@@ -72,24 +55,24 @@ def check_proxy(proxy):
         return False
 
 # Функция для получения резервов пары
-def get_reserves():
+def get_reserves(pair_contract):
     reserves = pair_contract.functions.getReserves().call()
     return reserves[0], reserves[1]  # reserve_eth (Wrapped SFI), reserve_aimm (AIMM)
 
 # Функция для генерации случайной суммы
 def generate_random_amount():
-    return w3.to_wei(random.uniform(0.01, 0.32), 'ether')
+    return Web3.to_wei(random.uniform(0.01, 0.32), 'ether')
 
 # Функция для получения динамической цены газа с увеличением на 30-50%
 def get_dynamic_gas_price(w3, increase_factor=1.0):
     base_gas_price = w3.eth.gas_price
     boost_factor = random.uniform(1.3, 1.5)  # +30% до +50%
     dynamic_gas_price = int(base_gas_price * boost_factor * increase_factor)
-    print(f"{Fore.CYAN}Текущая цена газа: {w3.from_wei(base_gas_price, 'gwei')} Gwei, применённая: {w3.from_wei(dynamic_gas_price, 'gwei')} Gwei{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Текущая цена газа: {Web3.from_wei(base_gas_price, 'gwei')} Gwei, применённая: {Web3.from_wei(dynamic_gas_price, 'gwei')} Gwei{Style.RESET_ALL}")
     return dynamic_gas_price
 
 # Функция для проверки статуса транзакции
-def check_transaction_status(tx_hash, max_checks=5, wait_time=30):
+def check_transaction_status(w3, tx_hash, max_checks=5, wait_time=30):
     for attempt in range(max_checks):
         try:
             receipt = w3.eth.get_transaction_receipt(tx_hash)
@@ -110,15 +93,15 @@ def check_transaction_status(tx_hash, max_checks=5, wait_time=30):
     return False
 
 # Функция для получения актуального nonce
-def get_actual_nonce(address):
+def get_actual_nonce(w3, address):
     latest_nonce = w3.eth.get_transaction_count(address, 'latest')
     pending_nonce = w3.eth.get_transaction_count(address, 'pending')
     print(f"{Fore.CYAN}Latest nonce: {latest_nonce}, Pending nonce: {pending_nonce}{Style.RESET_ALL}")
     return latest_nonce
 
 # Обновлённые функции с возвратом (tx_hash, updated_nonce)
-def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
-    approve_amount = w3.to_wei(10, 'ether')
+def send_approve_wrapped_sfi(w3, wrapped_sfi_contract, spender, nonce, private_key, max_retries=3):
+    approve_amount = Web3.to_wei(10, 'ether')
     gas_increase_factor = 1.0
     for attempt in range(max_retries):
         gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
@@ -149,7 +132,7 @@ def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
                     raise Exception("Approve transaction failed")
             except Exception as timeout_error:
                 print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
-                if check_transaction_status(tx_hash):
+                if check_transaction_status(w3, tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
                     print(f"{Fore.CYAN}Фактический nonce: {actual_nonce}{Style.RESET_ALL}")
@@ -180,7 +163,7 @@ def send_approve_wrapped_sfi(spender, nonce, private_key, max_retries=3):
                     return None, nonce
     return None, nonce
 
-def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
+def send_deposit_transaction(w3, contract, amount, nonce, private_key, max_retries=3):
     gas_increase_factor = 1.0
     for attempt in range(max_retries):
         gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
@@ -212,7 +195,7 @@ def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
                     raise Exception("Deposit transaction failed")
             except Exception as timeout_error:
                 print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
-                if check_transaction_status(tx_hash):
+                if check_transaction_status(w3, tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
                     print(f"{Fore.CYAN}Фактический nonce: {actual_nonce}{Style.RESET_ALL}")
@@ -235,7 +218,7 @@ def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
                 nonce = w3.eth.get_transaction_count(w3.eth.account.from_key(private_key).address, 'pending')
             elif 'transfer amount exceeds allowance' in str(e).lower() or 'insufficient allowance' in str(e).lower() or 'revert' in str(e).lower():
                 print(f"{Fore.YELLOW}⚠ Депозит провалился из-за недостаточного одобрения. Выполняем Approve...{Style.RESET_ALL}")
-                approve_tx, updated_nonce = send_approve_wrapped_sfi(CONTRACT_ADDRESS, nonce, private_key)
+                approve_tx, updated_nonce = send_approve_wrapped_sfi(w3, wrapped_sfi_contract, CONTRACT_ADDRESS, nonce, private_key)
                 if approve_tx:
                     nonce = updated_nonce + 1
                     random_sleep(10, 30)
@@ -252,25 +235,25 @@ def send_deposit_transaction(amount, nonce, private_key, max_retries=3):
                     return None, nonce
     return None, nonce
 
-def get_staked_balance(wallet_address):
+def get_staked_balance(w3, contract, wallet_address):
     try:
         user_info = contract.functions.userInfo(wallet_address).call()
         staked_amount = user_info[0]
-        print(f"{Fore.CYAN}Застейканный баланс: {w3.from_wei(staked_amount, 'ether')} Wrapped SFI{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}Застейканный баланс: {Web3.from_wei(staked_amount, 'ether')} Wrapped SFI{Style.RESET_ALL}")
         return staked_amount
     except Exception as e:
         print(f"{Fore.RED}✗ Ошибка при получении застейканного баланса: {e}{Style.RESET_ALL}")
         return 0
 
-def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_retries=3):
-    staked_balance = get_staked_balance(wallet_address)
+def send_withdraw_and_claim_transaction(w3, contract, wallet_address, nonce, private_key, max_retries=3):
+    staked_balance = get_staked_balance(w3, contract, wallet_address)
     if staked_balance == 0:
         print(f"{Fore.YELLOW}⚠ Нет застейканных токенов для вывода.{Style.RESET_ALL}")
         return None, nonce
 
     percentage = random.uniform(0.03, 0.06)
     withdraw_amount = int(staked_balance * percentage)
-    print(f"{Fore.CYAN}Выводим {percentage * 100:.2f}%: {w3.from_wei(withdraw_amount, 'ether')} Wrapped SFI{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Выводим {percentage * 100:.2f}%: {Web3.from_wei(withdraw_amount, 'ether')} Wrapped SFI{Style.RESET_ALL}")
     gas_increase_factor = 1.0
 
     for attempt in range(max_retries):
@@ -302,7 +285,7 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
                     raise Exception("WithdrawAndClaim transaction failed")
             except Exception as timeout_error:
                 print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
-                if check_transaction_status(tx_hash):
+                if check_transaction_status(w3, tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
                     print(f"{Fore.CYAN}Фактический nonce: {actual_nonce}{Style.RESET_ALL}")
@@ -333,14 +316,14 @@ def send_withdraw_and_claim_transaction(wallet_address, nonce, private_key, max_
                     return None, nonce
     return None, nonce
 
-def send_claim_transaction(nonce, private_key, max_retries=3):
+def send_claim_transaction(w3, contract, nonce, private_key, max_retries=3):
     gas_increase_factor = 1.0
     for attempt in range(max_retries):
         gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
             balance = w3.eth.get_balance(w3.eth.account.from_key(private_key).address)
-            print(f"{Fore.CYAN}Баланс перед клеймом: {w3.from_wei(balance, 'ether')} ETH{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}Баланс перед клеймом: {Web3.from_wei(balance, 'ether')} ETH{Style.RESET_ALL}")
             tx = contract.functions.claim().build_transaction({
                 'chainId': 751, 'gas': 2000000, 'gasPrice': gas_price, 'nonce': nonce
             })
@@ -366,7 +349,7 @@ def send_claim_transaction(nonce, private_key, max_retries=3):
                     raise Exception("Claim transaction failed")
             except Exception as timeout_error:
                 print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
-                if check_transaction_status(tx_hash):
+                if check_transaction_status(w3, tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
                     print(f"{Fore.CYAN}Фактический nonce: {actual_nonce}{Style.RESET_ALL}")
@@ -397,7 +380,7 @@ def send_claim_transaction(nonce, private_key, max_retries=3):
                     return None, nonce
     return None, nonce
 
-def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3):
+def send_erc20_transaction(w3, token_contract, to_address, amount, nonce, private_key, max_retries=3):
     gas_increase_factor = 1.0
     for attempt in range(max_retries):
         gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
@@ -428,7 +411,7 @@ def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3
                     raise Exception("Transfer transaction failed")
             except Exception as timeout_error:
                 print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
-                if check_transaction_status(tx_hash):
+                if check_transaction_status(w3, tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
                     print(f"{Fore.CYAN}Фактический nonce: {actual_nonce}{Style.RESET_ALL}")
@@ -459,14 +442,14 @@ def send_erc20_transaction(to_address, amount, nonce, private_key, max_retries=3
                     return None, nonce
     return None, nonce
 
-def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
+def send_swap_transaction(w3, swap_contract, nonce, eth_amount, private_key, max_retries=3):
     gas_increase_factor = 1.0
     for attempt in range(max_retries):
         gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
             amount_out_min = 3285945906750451
-            path = [w3.to_checksum_address("0x6dC404EFd04B880B0Ab5a26eF461b63A12E3888D"), AIM_ADDRESS]
+            path = [Web3.to_checksum_address("0x6dC404EFd04B880B0Ab5a26eF461b63A12E3888D"), AIM_ADDRESS]
             to = w3.eth.account.from_key(private_key).address
             deadline = 115792089237316195423570985008687907853269984665640564039457584007913129639935
 
@@ -497,7 +480,7 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
                     raise Exception("Swap transaction failed")
             except Exception as timeout_error:
                 print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
-                if check_transaction_status(tx_hash):
+                if check_transaction_status(w3, tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
                     print(f"{Fore.CYAN}Фактический nonce: {actual_nonce}{Style.RESET_ALL}")
@@ -528,13 +511,13 @@ def send_swap_transaction(nonce, eth_amount, private_key, max_retries=3):
                     return None, nonce
     return None, nonce
 
-def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
+def send_approve_transaction(w3, aimm_contract, nonce, private_key, amount=1000000, max_retries=3):
     gas_increase_factor = 1.0
     for attempt in range(max_retries):
         gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
-            tx = aimm_contract.functions.approve(ROUTER_ADDRESS, w3.to_wei(amount, 'ether')).build_transaction({
+            tx = aimm_contract.functions.approve(ROUTER_ADDRESS, Web3.to_wei(amount, 'ether')).build_transaction({
                 'chainId': 751, 'gas': 100000, 'gasPrice': gas_price, 'nonce': nonce
             })
             signed_tx = w3.eth.account.sign_transaction(tx, private_key)
@@ -559,7 +542,7 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
                     raise Exception("Approve transaction failed")
             except Exception as timeout_error:
                 print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
-                if check_transaction_status(tx_hash):
+                if check_transaction_status(w3, tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
                     print(f"{Fore.CYAN}Фактический nonce: {actual_nonce}{Style.RESET_ALL}")
@@ -590,18 +573,18 @@ def send_approve_transaction(nonce, private_key, amount=1000000, max_retries=3):
                     return None, nonce
     return None, nonce
 
-def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
+def send_add_liquidity_eth_transaction(w3, router_contract, aimm_contract, wrapped_sfi_contract, pair_contract, nonce, private_key, max_retries=3):
     gas_increase_factor = 1.0
     for attempt in range(max_retries):
         gas_price = get_dynamic_gas_price(w3, gas_increase_factor)
         print(f"{Fore.CYAN}Используемый nonce: {nonce}{Style.RESET_ALL}")
         try:
-            reserve_eth, reserve_aimm = get_reserves()
-            print(f"{Fore.CYAN}Резервы пула: Wrapped SFI = {w3.from_wei(reserve_eth, 'ether')}, AIMM = {w3.from_wei(reserve_aimm, 'ether')}{Style.RESET_ALL}")
+            reserve_eth, reserve_aimm = get_reserves(pair_contract)
+            print(f"{Fore.CYAN}Резервы пула: Wrapped SFI = {Web3.from_wei(reserve_eth, 'ether')}, AIMM = {Web3.from_wei(reserve_aimm, 'ether')}{Style.RESET_ALL}")
             aimm_balance = aimm_contract.functions.balanceOf(w3.eth.account.from_key(private_key).address).call()
-            print(f"{Fore.CYAN}Баланс AIMM: {w3.from_wei(aimm_balance, 'ether')} AIMM{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}Баланс AIMM: {Web3.from_wei(aimm_balance, 'ether')} AIMM{Style.RESET_ALL}")
             wsfi_balance = wrapped_sfi_contract.functions.balanceOf(w3.eth.account.from_key(private_key).address).call()
-            print(f"{Fore.CYAN}Баланс Wrapped SFI: {w3.from_wei(wsfi_balance, 'ether')} WSFI{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}Баланс Wrapped SFI: {Web3.from_wei(wsfi_balance, 'ether')} WSFI{Style.RESET_ALL}")
 
             if aimm_balance == 0 or wsfi_balance == 0:
                 print(f"{Fore.YELLOW}⚠ Баланс AIMM или WSFI равен 0. Пропускаем добавление ликвидности.{Style.RESET_ALL}")
@@ -609,23 +592,23 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
 
             percentage = random.uniform(0.10, 0.15)
             aimm_amount_wei = int(aimm_balance * percentage)
-            aimm_amount = w3.from_wei(aimm_amount_wei, 'ether')
+            aimm_amount = Web3.from_wei(aimm_amount_wei, 'ether')
             print(f"{Fore.CYAN}Используем {percentage * 100:.2f}% баланса AIMM: {aimm_amount} AIMM{Style.RESET_ALL}")
 
             if reserve_aimm > 0 and reserve_eth > 0:
                 eth_amount_wei = (aimm_amount_wei * reserve_eth) // reserve_aimm
-                eth_amount = w3.from_wei(eth_amount_wei, 'ether')
+                eth_amount = Web3.from_wei(eth_amount_wei, 'ether')
             else:
                 print(f"{Fore.YELLOW}⚠ Резервы пула некорректны. Используем случайное значение Wrapped SFI.{Style.RESET_ALL}")
-                eth_amount_wei = w3.to_wei(random.uniform(0.001, 0.028), 'ether')
-                eth_amount = w3.from_wei(eth_amount_wei, 'ether')
+                eth_amount_wei = Web3.to_wei(random.uniform(0.001, 0.028), 'ether')
+                eth_amount = Web3.from_wei(eth_amount_wei, 'ether')
 
             if eth_amount_wei > wsfi_balance:
-                print(f"{Fore.YELLOW}⚠ Требуется больше WSFI ({eth_amount}) чем доступно ({w3.from_wei(wsfi_balance, 'ether')}). Корректируем...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠ Требуется больше WSFI ({eth_amount}) чем доступно ({Web3.from_wei(wsfi_balance, 'ether')}). Корректируем...{Style.RESET_ALL}")
                 eth_amount_wei = wsfi_balance
                 aimm_amount_wei = (eth_amount_wei * reserve_aimm) // reserve_eth if reserve_eth > 0 else aimm_amount_wei
-                aimm_amount = w3.from_wei(aimm_amount_wei, 'ether')
-                eth_amount = w3.from_wei(eth_amount_wei, 'ether')
+                aimm_amount = Web3.from_wei(aimm_amount_wei, 'ether')
+                eth_amount = Web3.from_wei(eth_amount_wei, 'ether')
                 print(f"{Fore.CYAN}Скорректировано: Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}{Style.RESET_ALL}")
 
             print(f"{Fore.CYAN}Добавляем: Wrapped SFI = {eth_amount}, AIMM = {aimm_amount}{Style.RESET_ALL}")
@@ -660,7 +643,7 @@ def send_add_liquidity_eth_transaction(nonce, private_key, max_retries=3):
                     raise Exception("Liquidity transaction failed")
             except Exception as timeout_error:
                 print(f"{Fore.YELLOW}⚠ Тайм-аут 120 секунд для транзакции 0x{tx_hash.hex()}. Проверяем статус...{Style.RESET_ALL}")
-                if check_transaction_status(tx_hash):
+                if check_transaction_status(w3, tx_hash):
                     tx_info = w3.eth.get_transaction(tx_hash)
                     actual_nonce = tx_info['nonce']
                     print(f"{Fore.CYAN}Фактический nonce: {actual_nonce}{Style.RESET_ALL}")
@@ -696,13 +679,13 @@ def random_sleep(min_time, max_time):
     print(f"{Fore.CYAN}Пауза на {sleep_time} секунд...{Style.RESET_ALL}")
     time.sleep(sleep_time)
 
-def get_wallet_stats(wallet_address):
+def get_wallet_stats(w3, wallet_address):
     try:
         tx_count = w3.eth.get_transaction_count(wallet_address)
         balance = w3.eth.get_balance(wallet_address)
         print(f"{Fore.CYAN}Статистика кошелька {wallet_address}:{Style.RESET_ALL}")
         print(f"{Fore.CYAN}Количество транзакций: {tx_count}{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}Баланс: {w3.from_wei(balance, 'ether')} ETH{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}Баланс: {Web3.from_wei(balance, 'ether')} ETH{Style.RESET_ALL}")
     except Exception as e:
         print(f"{Fore.RED}✗ Ошибка при получении статистики кошелька: {e}{Style.RESET_ALL}")
 
@@ -711,12 +694,13 @@ for i in range(min(len(accounts), len(proxies))):
     private_key = accounts[i]
     proxy = proxies[i]
 
-    account = w3.eth.account.from_key(private_key)
+    account = Web3().eth.account.from_key(private_key)  # Создаем временный объект для получения адреса
     address = account.address
 
     print(f"{Fore.MAGENTA}=== Обработка аккаунта: {address} ==={Style.RESET_ALL}")
     print(f"{Fore.MAGENTA}Используемый прокси: {proxy}{Style.RESET_ALL}")
 
+    # Проверка прокси
     max_retries = 3
     proxy_works = False
     for attempt in range(max_retries):
@@ -729,14 +713,34 @@ for i in range(min(len(accounts), len(proxies))):
         print(f"{Fore.RED}✗ Прокси {proxy} не работает после {max_retries} попыток. Пропускаем аккаунт.{Style.RESET_ALL}")
         continue
 
-    nonce = get_actual_nonce(address)
+    # Настройка Web3 с использованием прокси
+    w3 = Web3(Web3.HTTPProvider(
+        'https://rpc-testnet.singularityfinance.ai/',
+        request_kwargs={'proxies': {'http': proxy, 'https': proxy}}
+    ))
+    if not w3.is_connected():
+        print(f"{Fore.RED}Не удалось подключиться к сети через прокси {proxy}. Пропускаем аккаунт.{Style.RESET_ALL}")
+        continue
+
+    print(f"{Fore.GREEN}Успешно подключились к сети через прокси {proxy}.{Style.RESET_ALL}")
+
+    # Пересоздание контрактов с новым w3
+    contract = w3.eth.contract(address=Web3.to_checksum_address(CONTRACT_ADDRESS), abi=abi_data['contract'])
+    pair_contract = w3.eth.contract(address=Web3.to_checksum_address(PAIR_ADDRESS), abi=abi_data['pair'])
+    router_contract = w3.eth.contract(address=Web3.to_checksum_address(ROUTER_ADDRESS), abi=abi_data['router_full'])
+    token_contract = w3.eth.contract(address=Web3.to_checksum_address(TOKEN_ADDRESS), abi=abi_data['token'])
+    swap_contract = w3.eth.contract(address=Web3.to_checksum_address(ROUTER_ADDRESS), abi=abi_data['swap'])
+    wrapped_sfi_contract = w3.eth.contract(address=Web3.to_checksum_address(WRAPPED_SFI_ADDRESS), abi=abi_data['wsfi'])
+    aimm_contract = w3.eth.contract(address=Web3.to_checksum_address(AIM_ADDRESS), abi=abi_data['token'])
+
+    nonce = get_actual_nonce(w3, address)
 
     # 1. Выполняем свап 3 раза
     print(f"{Fore.BLUE}=== Этап 1: Свапы ==={Style.RESET_ALL}")
     for j in range(3):
         swap_amount = generate_random_amount()
-        print(f"{Fore.CYAN}Запуск свапа {j + 1}/3 на {w3.from_wei(swap_amount, 'ether')} ETH...{Style.RESET_ALL}")
-        tx_hash, updated_nonce = send_swap_transaction(nonce, swap_amount, private_key)
+        print(f"{Fore.CYAN}Запуск свапа {j + 1}/3 на {Web3.from_wei(swap_amount, 'ether')} ETH...{Style.RESET_ALL}")
+        tx_hash, updated_nonce = send_swap_transaction(w3, swap_contract, nonce, swap_amount, private_key)
         if tx_hash:
             nonce = updated_nonce + 1
             print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
@@ -747,16 +751,16 @@ for i in range(min(len(accounts), len(proxies))):
 
     # 2. Добавляем ликвидность
     print(f"{Fore.BLUE}=== Этап 2: Добавление ликвидности ==={Style.RESET_ALL}")
-    tx_hash, updated_nonce = send_add_liquidity_eth_transaction(nonce, private_key)
+    tx_hash, updated_nonce = send_add_liquidity_eth_transaction(w3, router_contract, aimm_contract, wrapped_sfi_contract, pair_contract, nonce, private_key)
     if not tx_hash:
         print(f"{Fore.YELLOW}Ликвидность не добавлена, выполняем Approve...{Style.RESET_ALL}")
-        tx_hash, updated_nonce = send_approve_transaction(nonce, private_key, amount=1000)
+        tx_hash, updated_nonce = send_approve_transaction(w3, aimm_contract, nonce, private_key, amount=1000)
         if tx_hash:
             nonce = updated_nonce + 1
             print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
         random_sleep(10, 45)
         print(f"{Fore.YELLOW}Повторная попытка добавления ликвидности...{Style.RESET_ALL}")
-        tx_hash, updated_nonce = send_add_liquidity_eth_transaction(nonce, private_key)
+        tx_hash, updated_nonce = send_add_liquidity_eth_transaction(w3, router_contract, aimm_contract, wrapped_sfi_contract, pair_contract, nonce, private_key)
         if tx_hash:
             nonce = updated_nonce + 1
             print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
@@ -769,10 +773,10 @@ for i in range(min(len(accounts), len(proxies))):
     # 3. Выполняем депозиты
     print(f"{Fore.BLUE}=== Этап 3: Депозиты ==={Style.RESET_ALL}")
     amount1 = generate_random_amount()
-    print(f"{Fore.CYAN}Баланс Wrapped SFI: {w3.from_wei(wrapped_sfi_contract.functions.balanceOf(address).call(), 'ether')} ETH{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Текущий allowance: {w3.from_wei(wrapped_sfi_contract.functions.allowance(address, CONTRACT_ADDRESS).call(), 'ether')} ETH{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Отправка первого депозита на {w3.from_wei(amount1, 'ether')} ETH...{Style.RESET_ALL}")
-    tx_hash1, updated_nonce = send_deposit_transaction(amount1, nonce, private_key)
+    print(f"{Fore.CYAN}Баланс Wrapped SFI: {Web3.from_wei(wrapped_sfi_contract.functions.balanceOf(address).call(), 'ether')} ETH{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Текущий allowance: {Web3.from_wei(wrapped_sfi_contract.functions.allowance(address, CONTRACT_ADDRESS).call(), 'ether')} ETH{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Отправка первого депозита на {Web3.from_wei(amount1, 'ether')} ETH...{Style.RESET_ALL}")
+    tx_hash1, updated_nonce = send_deposit_transaction(w3, contract, amount1, nonce, private_key)
     if tx_hash1:
         nonce = updated_nonce + 1
         print(f"{Fore.GREEN}✓ Первый депозит отправлен. Хэш: 0x{tx_hash1.hex()}{Style.RESET_ALL}")
@@ -780,10 +784,10 @@ for i in range(min(len(accounts), len(proxies))):
     random_sleep(10, 45)
 
     amount2 = generate_random_amount()
-    print(f"{Fore.CYAN}Баланс Wrapped SFI: {w3.from_wei(wrapped_sfi_contract.functions.balanceOf(address).call(), 'ether')} ETH{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Текущий allowance: {w3.from_wei(wrapped_sfi_contract.functions.allowance(address, CONTRACT_ADDRESS).call(), 'ether')} ETH{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Отправка второго депозита на {w3.from_wei(amount2, 'ether')} ETH...{Style.RESET_ALL}")
-    tx_hash2, updated_nonce = send_deposit_transaction(amount2, nonce, private_key)
+    print(f"{Fore.CYAN}Баланс Wrapped SFI: {Web3.from_wei(wrapped_sfi_contract.functions.balanceOf(address).call(), 'ether')} ETH{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Текущий allowance: {Web3.from_wei(wrapped_sfi_contract.functions.allowance(address, CONTRACT_ADDRESS).call(), 'ether')} ETH{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Отправка второго депозита на {Web3.from_wei(amount2, 'ether')} ETH...{Style.RESET_ALL}")
+    tx_hash2, updated_nonce = send_deposit_transaction(w3, contract, amount2, nonce, private_key)
     if tx_hash2:
         nonce = updated_nonce + 1
         print(f"{Fore.GREEN}✓ Второй депозит отправлен. Хэш: 0x{tx_hash2.hex()}{Style.RESET_ALL}")
@@ -795,9 +799,9 @@ for i in range(min(len(accounts), len(proxies))):
     print(f"{Fore.BLUE}=== Этап 4: Отправка токенов ==={Style.RESET_ALL}")
     for k in range(3):
         eth_amount = random.uniform(0.01, 0.99)
-        amount = w3.to_wei(eth_amount, 'ether')
+        amount = Web3.to_wei(eth_amount, 'ether')
         print(f"{Fore.CYAN}Отправка токенов {k + 1}/3 на {eth_amount:.2f} ETH ({amount} wei)...{Style.RESET_ALL}")
-        tx_hash, updated_nonce = send_erc20_transaction(address, amount, nonce, private_key)
+        tx_hash, updated_nonce = send_erc20_transaction(w3, token_contract, address, amount, nonce, private_key)
         if tx_hash:
             nonce = updated_nonce + 1
             print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
@@ -806,7 +810,7 @@ for i in range(min(len(accounts), len(proxies))):
 
     # 5. Выполняем withdrawAndClaim
     print(f"{Fore.BLUE}=== Этап 5: WithdrawAndClaim ==={Style.RESET_ALL}")
-    tx_hash, updated_nonce = send_withdraw_and_claim_transaction(address, nonce, private_key)
+    tx_hash, updated_nonce = send_withdraw_and_claim_transaction(w3, contract, address, nonce, private_key)
     if tx_hash:
         nonce = updated_nonce + 1
         print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
@@ -817,7 +821,7 @@ for i in range(min(len(accounts), len(proxies))):
     print(f"{Fore.BLUE}=== Этап 6: Клейм ==={Style.RESET_ALL}")
     for _ in range(2):
         print(f"{Fore.CYAN}Отправка транзакции для claim...{Style.RESET_ALL}")
-        tx_hash, updated_nonce = send_claim_transaction(nonce, private_key)
+        tx_hash, updated_nonce = send_claim_transaction(w3, contract, nonce, private_key)
         if tx_hash:
             nonce = updated_nonce + 1
             print(f"{Fore.CYAN}Nonce обновлён до: {nonce}{Style.RESET_ALL}")
@@ -825,7 +829,7 @@ for i in range(min(len(accounts), len(proxies))):
     print(f"{Fore.BLUE}=== Клейм завершён ==={Style.RESET_ALL}")
 
     # Вывод статистики кошелька
-    get_wallet_stats(address)
+    get_wallet_stats(w3, address)
 
     random_sleep(30, 60)
     print(f"{Fore.MAGENTA}=== Обработка аккаунта {address} завершена ==={Style.RESET_ALL}")
