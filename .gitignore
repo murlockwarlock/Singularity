@@ -1,0 +1,4 @@
+accounts.txt
+proxies.txt
+__pycache__/
+*.py[cod]
